@@ -37,3 +37,12 @@ pip install -r requirements.txt
 
 
 
+<p float="left">
+  <img src="path/to/image1.jpg" alt="Image 1" width="300" height="400">
+  <img src="path/to/image2.jpg" alt="Image 2" width="300" height="400">
+</p>
+
+
+
+
+**Google Cloud credits are provided for this project** for the #AISprint September 2024.
