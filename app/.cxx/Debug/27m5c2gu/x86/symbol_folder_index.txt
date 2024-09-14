@@ -1,0 +1,1 @@
+/home/dell/AndroidStudioProjects/Fast_SAM_android/app/build/intermediates/cxx/Debug/27m5c2gu/obj/x86

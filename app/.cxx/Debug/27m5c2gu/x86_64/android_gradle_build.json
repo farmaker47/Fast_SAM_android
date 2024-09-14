@@ -1,0 +1,38 @@
+{
+  "buildFiles": [
+    "/home/dell/AndroidStudioProjects/Fast_SAM_android/app/src/main/cpp/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/home/dell/Android/Sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/home/dell/AndroidStudioProjects/Fast_SAM_android/app/.cxx/Debug/27m5c2gu/x86_64",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/home/dell/Android/Sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/home/dell/AndroidStudioProjects/Fast_SAM_android/app/.cxx/Debug/27m5c2gu/x86_64",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "imagesegmentation::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "x86_64",
+      "artifactName": "imagesegmentation",
+      "output": "/home/dell/AndroidStudioProjects/Fast_SAM_android/app/build/intermediates/cxx/Debug/27m5c2gu/obj/x86_64/libimagesegmentation.so",
+      "runtimeFiles": []
+    }
+  },
+  "toolchains": {
+    "toolchain": {
+      "cCompilerExecutable": "/home/dell/Android/Sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang.lld",
+      "cppCompilerExecutable": "/home/dell/Android/Sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++.lld"
+    }
+  },
+  "cFileExtensions": [],
+  "cppFileExtensions": [
+    "cpp"
+  ]
+}

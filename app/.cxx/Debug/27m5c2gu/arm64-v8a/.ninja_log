@@ -1,0 +1,3 @@
+# ninja log v5
+0	836	1726286688134752155	CMakeFiles/imagesegmentation.dir/imagesegmentation.cpp.o	a5fc23559abea0ef
+837	874	1726286688183753115	/home/dell/AndroidStudioProjects/Fast_SAM_android/app/build/intermediates/cxx/Debug/27m5c2gu/obj/arm64-v8a/libimagesegmentation.so	950fbdd211272903
