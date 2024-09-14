@@ -14,13 +14,17 @@ by your device's camera.
 - Efficient instance segmentation via prompt-guided selection (not applicable in this android demo)
 - Built on YOLOv8-seg for fast and accurate performance
 
-## Installation
+## Local Installation
 
 ```
 git clone https://github.com/CASIA-IVA-Lab/FastSAM.git
 cd FastSAM
 pip install -r requirements.txt
 ```
+## Or you can directly open the included repo notebook in colab:
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/farmaker47/Fast_SAM_android/blob/master/FastSAM_tflite.ipynb)
+
 
 # Build the Demo using Android Studio
 
