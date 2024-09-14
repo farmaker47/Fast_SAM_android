@@ -15,9 +15,14 @@
  */
 package com.georgios.soloupis.examples.imagesegmenter.fragments
 
+import ai.onnxruntime.OnnxTensor
+import ai.onnxruntime.OrtEnvironment
+import ai.onnxruntime.OrtSession
+import ai.onnxruntime.OrtSession.SessionOptions
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
@@ -43,18 +48,13 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
-import org.tensorflow.lite.support.common.ops.NormalizeOp
-import org.tensorflow.lite.support.image.ImageProcessor
-import org.tensorflow.lite.support.image.TensorImage
-import org.tensorflow.lite.support.image.ops.ResizeOp
-import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
 import java.io.FileInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.nio.FloatBuffer
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
 import java.util.Timer
@@ -74,6 +74,11 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
     private var fixedRateTimer: Timer? = null
     private var interpreterFastSam: Interpreter? = null
     private var inferenceTime: Long = 0L
+
+    private val ortEnvironment = OrtEnvironment.getEnvironment()
+    private var ortSession: OrtSession? = null
+    private var ortOptions: SessionOptions? = null
+    private val inputOnnxDim = 640
 
     private val getContent =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -139,6 +144,13 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
     }
 
     private fun loadModel(model: String) {
+
+        ortOptions = SessionOptions()
+        //ortOptions?.addCUDA()
+
+        ortSession = ortEnvironment.createSession(requireActivity().assets.open("FastSAM-s.onnx").readBytes(), ortOptions)
+
+
         val tfliteOptions = Interpreter.Options()
         /*if (true) {
             // Use with Tensorflow 2.8.0
@@ -270,6 +282,67 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
         return inputImage
     }
 
+    private fun bitmapToFloatBufferOnnx(
+        bitmapIn: Bitmap,
+        width: Int,
+        height: Int,
+        mean: Float = 0.0f,
+        std: Float = 255.0f
+    ): FloatBuffer {
+        // Step 1: Scale the bitmap to the target size (width x height)
+        val bitmap = Bitmap.createScaledBitmap(bitmapIn, width, height, true)
+
+        // Step 2: Allocate FloatBuffer for the image in 1x3xWidthxHeight format
+        // 1 (batch size) * 3 (channels) * width * height
+        val inputImage = FloatBuffer.allocate(1 * 3 * width * height)
+
+        // Step 3: Prepare an array to hold pixel data from the bitmap
+        val intValues = IntArray(width * height)
+        bitmap.getPixels(intValues, 0, width, 0, 0, width, height)
+
+        // Step 4: Convert pixel data into FloatBuffer in the format [1, 3, width, height]
+        for (i in 0 until 3) {
+            for (x in 0 until width) {
+                for (y in 0 until height) {
+                    val value = intValues[x * width + y]
+                    when (i) {
+                        0 -> {
+                            inputImage.put(((Color.red(value)) - mean) / std)
+                        }
+                        1 -> {
+                            inputImage.put(((Color.green(value)) - mean) / std)
+                        }
+                        else -> {
+                            inputImage.put(((Color.blue(value)) - mean) / std)
+                        }
+                    }
+
+                }
+            }
+        }
+
+        inputImage.rewind()  // Reset the buffer's position to the beginning for reading
+        return inputImage
+    }
+
+
+
+    private fun byteBufferToFloatArray(byteBuffer: ByteBuffer): FloatArray {
+        // Set the byte order to the native order (if not set)
+        byteBuffer.order(ByteOrder.nativeOrder())
+
+        // Convert ByteBuffer to FloatBuffer
+        val floatBuffer: FloatBuffer = byteBuffer.asFloatBuffer()
+
+        // Create a FloatArray of the appropriate size
+        val floatArray = FloatArray(floatBuffer.remaining())
+
+        // Copy FloatBuffer contents into the FloatArray
+        floatBuffer.get(floatArray)
+
+        return floatArray
+    }
+
     // Load and display the image.
     private fun runSegmentationOnImage(uri: Uri) {
         fragmentGalleryBinding.overlayView.setRunningMode(ImageSegmenterHelper.Companion.RunningMode.IMAGE)
@@ -290,56 +363,39 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
             imageSegmenterListener = this
         )
 
+
         lifecycleScope.launch(Dispatchers.Default) {
-
             val time = System.currentTimeMillis()
-            // Inputs
-            val imageProcessor =
-                ImageProcessor.Builder()
-                    .add(ResizeOp(Utils.MODEL_INPUTS_SIZE, Utils.MODEL_INPUTS_SIZE, ResizeOp.ResizeMethod.BILINEAR))
-                    .add(NormalizeOp(0.0f, 255.0f))
-                    .build()
-            var tensorImage = TensorImage(DataType.FLOAT32)
-            tensorImage.load(inputImage)
-            tensorImage = imageProcessor.process(tensorImage)
-            val inputTensorBuffer = tensorImage.buffer
-            val inputArray = arrayOf(inputTensorBuffer)
+            val imagePixels = bitmapToFloatBufferOnnx(inputImage, 640, 640)
+            val inputTensor =
+                OnnxTensor.createTensor(
+                    ortEnvironment,
+                    imagePixels,
+                    longArrayOf(1, 3, inputOnnxDim.toLong(), inputOnnxDim.toLong())
+                )
+            val inputOnnxName = ortSession?.inputNames?.iterator()?.next()
+            val outputs = ortSession?.run(mapOf(inputOnnxName to inputTensor))
 
-            // Outputs
-            val probabilityBuffer1 = TensorBuffer.createFixedSize(
-                intArrayOf(1, 37, 8400),
-                DataType.FLOAT32
-            )
-            val probabilityBuffer2 = TensorBuffer.createFixedSize(
-                intArrayOf(1, 160, 160, 32),
-                DataType.FLOAT32
-            )
-            val outputMap = HashMap<Int, Any>()
-            outputMap[0] = probabilityBuffer1.buffer
-            outputMap[1] = probabilityBuffer2.buffer
 
-            interpreterFastSam?.runForMultipleInputsOutputs(inputArray, outputMap)
-
-            // Convert to a float array with the desired shape
-            val flatFloatArray = probabilityBuffer1.floatArray
-            // Step 2: Convert the flat float array into a 3D float array of shape [1, 37, 8400]
+            val outputTensor0 = outputs?.get(0) as OnnxTensor
+            val flatfloatarray0Onnx = byteBufferToFloatArray(outputTensor0.byteBuffer)
             val boxesArray = Array(1) { Array(37) { FloatArray(8400) } }
             for (i in 0 until 37) {
                 for (j in 0 until 8400) {
-                    boxesArray[0][i][j] = flatFloatArray[i * 8400 + j]
+                    boxesArray[0][i][j] = flatfloatarray0Onnx[i * 8400 + j]
                 }
             }
 
-            val flatFloatArray2 = probabilityBuffer2.floatArray
-            val masksArray = Array(1) { Array(32) { Array(160) { FloatArray(160) } } }
-            for (i in 0 until 160) {
-                for (j in 0 until 160) {
-                    for (k in 0 until 32) {
-                        // Calculate the index in flatFloatArray based on original shape [1, 160, 160, 32]
-                        val originalIndex = i * 160 * 32 + j * 32 + k
 
-                        // Place the value in the new transposed position [1, 32, 160, 160]
-                        masksArray[0][k][i][j] = flatFloatArray2[originalIndex]
+
+            val outputTensor1 = outputs.get(1) as OnnxTensor
+            val flatfloatarray1Onnx = byteBufferToFloatArray(outputTensor1.byteBuffer)
+            val masksArray = Array(1) { Array(32) { Array(160) { FloatArray(160) } } }
+            var index = 0
+            for (c in 0 until 32) {
+                for (h in 0 until 160) {
+                    for (w in 0 until 160) {
+                        masksArray[0][c][h][w] = flatfloatarray1Onnx[index++]
                     }
                 }
             }

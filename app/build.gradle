@@ -110,6 +110,9 @@ dependencies {
     implementation("com.google.ai.edge.litert:litert-support:1.0.1")
     // implementation("com.google.ai.edge.litert:litert-gpu:1.0.1")
 
+    // Onnx
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.17.0")
+
     // OpenCV
     implementation("com.quickbirdstudios:opencv:4.5.3.0")
 
