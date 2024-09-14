@@ -38,8 +38,8 @@ pip install -r requirements.txt
 
 
 <p float="left">
-  <img src="mouth.png" alt="Image 1" width="300" height="500">
-  <img src="mouth_mask.png" alt="Image 2" width="300" height="500">
+  <img src="mouth.png" alt="Image 1" width="300" height="600">
+  <img src="mouth_with_mask.png" alt="Image 2" width="300" height="600">
 </p>
 
 
