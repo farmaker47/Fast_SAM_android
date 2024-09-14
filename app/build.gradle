@@ -108,6 +108,7 @@ dependencies {
     // implementation("org.tensorflow:tensorflow-lite-gpu:2.8.0")
     implementation("com.google.ai.edge.litert:litert:1.0.1")
     implementation("com.google.ai.edge.litert:litert-support:1.0.1")
+    // implementation("com.google.ai.edge.litert:litert-gpu:1.0.1")
 
     // OpenCV
     implementation("com.quickbirdstudios:opencv:4.5.3.0")
