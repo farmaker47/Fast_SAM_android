@@ -23,7 +23,9 @@ pip install -r requirements.txt
 ```
 ## Or you can directly open the included repo notebook in colab:
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/farmaker47/Fast_SAM_android/blob/master/FastSAM_tflite.ipynb)
+<a target="_blank" href="https://colab.research.google.com/github/farmaker47/Fast_SAM_android/blob/master/FastSAM_tflite.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
 
 
 # Build the Demo using Android Studio
