@@ -1,6 +1,6 @@
 # FastSAM Image Segmentation Android Demo
 
-### Overview
+# Overview
 
 This is a camera app that continuously segment the objects in the frames seen
 by your device's camera.
@@ -48,5 +48,9 @@ pip install -r requirements.txt
   <img src="mouth.png" alt="Image 1" width="300" height="600">
   <img src="mouth_with_mask.png" alt="Image 2" width="300" height="600">
 </p>
+
+## LiteRT
+
+Google has rebranded TensorFlow Lite as LiteRT which is used inside this project. Despite the new name, LiteRT retains the same high-performance on-device AI runtime but with expanded vision for multi-framework support, including models built in TensorFlow, PyTorch, JAX, and Keras. This change aims to make deploying machine learning models easier and more efficient across Android, iOS, and embedded devices. The name reflects Google’s commitment to a lightweight, multi-framework AI future.
 
 **Google Cloud credits are provided for this project** for the #AISprint September 2024.
