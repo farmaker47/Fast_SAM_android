@@ -34,15 +34,11 @@ pip install -r requirements.txt
 3. If prompted for Gradle Sync, click **OK**.
 4. Connect your Android device, enable developer mode, and click the green **Run** arrow in Android Studio.
 
-
-
+## Result after using an image from gallery
 
 <p float="left">
   <img src="mouth.png" alt="Image 1" width="300" height="600">
   <img src="mouth_with_mask.png" alt="Image 2" width="300" height="600">
 </p>
-
-
-
 
 **Google Cloud credits are provided for this project** for the #AISprint September 2024.
