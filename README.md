@@ -7,7 +7,9 @@ by your device's camera.
 
 # Model
 
-[FastSAM by Ultralytics](https://docs.ultralytics.com/models/fast-sam/) is a real-time, CNN-based model designed to segment any object in an image with minimal computational resources. It builds on YOLOv8-seg and is tailored for high-speed and efficient segmentation across various tasks.
+[FastSAM by Ultralytics](https://docs.ultralytics.com/models/fast-sam/) is a real-time, CNN-based model designed to segment any object in an image with minimal computational resources. It builds on YOLOv8-seg and is tailored for high-speed and efficient segmentation across various tasks. 
+
+**This project uses the FastSAM_s.pt variant**!
 
 ## Key Features
 - Real-time segmentation using CNNs
