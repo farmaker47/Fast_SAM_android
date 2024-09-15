@@ -78,7 +78,6 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
     private val ortEnvironment = OrtEnvironment.getEnvironment()
     private var ortSession: OrtSession? = null
     private var ortOptions: SessionOptions? = null
-    private val inputOnnxDim = 640
 
     private val getContent =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -366,12 +365,12 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
 
         lifecycleScope.launch(Dispatchers.Default) {
             val time = System.currentTimeMillis()
-            val imagePixels = bitmapToFloatBufferOnnx(inputImage, 640, 640)
+            val imagePixels = bitmapToFloatBufferOnnx(inputImage, INPUT_ONNX_DIMENSIONS, INPUT_ONNX_DIMENSIONS)
             val inputTensor =
                 OnnxTensor.createTensor(
                     ortEnvironment,
                     imagePixels,
-                    longArrayOf(1, 3, inputOnnxDim.toLong(), inputOnnxDim.toLong())
+                    longArrayOf(1, 3, INPUT_ONNX_DIMENSIONS.toLong(), INPUT_ONNX_DIMENSIONS.toLong())
                 )
             val inputOnnxName = ortSession?.inputNames?.iterator()?.next()
             val outputs = ortSession?.run(mapOf(inputOnnxName to inputTensor))
@@ -508,5 +507,6 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
 
     companion object {
         private const val TAG = "GalleryFragment"
+        private const val INPUT_ONNX_DIMENSIONS = 640
     }
 }
