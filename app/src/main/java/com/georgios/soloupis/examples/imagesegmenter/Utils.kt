@@ -3,10 +3,15 @@ package com.georgios.soloupis.examples.imagesegmenter
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.util.Log
+import org.opencv.core.Core
 import org.opencv.core.CvType
 import org.opencv.core.Mat
+import org.opencv.core.Point
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.FloatBuffer
 import kotlin.random.Random
 
 object Utils {
@@ -440,6 +445,104 @@ object Utils {
         bitmap.setPixels(pixels, 0, MODEL_INPUTS_SIZE, 0, 0, MODEL_INPUTS_SIZE, MODEL_INPUTS_SIZE)
 
         return bitmap
+    }
+
+    fun bitmapToFloatBufferOnnx(
+        bitmapIn: Bitmap,
+        width: Int,
+        height: Int,
+        mean: Float = 0.0f,
+        std: Float = 255.0f
+    ): FloatBuffer {
+        val bitmap = Bitmap.createScaledBitmap(bitmapIn, width, height, true)
+        val inputImage = FloatBuffer.allocate(1 * 3 * width * height)
+
+        val intValues = IntArray(width * height)
+        bitmap.getPixels(intValues, 0, width, 0, 0, width, height)
+
+        // Convert pixel data into FloatBuffer in the format [1, 3, width, height]
+        for (i in 0 until 3) {
+            for (x in 0 until width) {
+                for (y in 0 until height) {
+                    val value = intValues[x * width + y]
+                    when (i) {
+                        0 -> {
+                            inputImage.put(((Color.red(value)) - mean) / std)
+                        }
+                        1 -> {
+                            inputImage.put(((Color.green(value)) - mean) / std)
+                        }
+                        else -> {
+                            inputImage.put(((Color.blue(value)) - mean) / std)
+                        }
+                    }
+
+                }
+            }
+        }
+
+        inputImage.rewind()  // Reset the buffer's position to the beginning for reading
+        return inputImage
+    }
+
+    fun byteBufferToFloatArray(byteBuffer: ByteBuffer): FloatArray {
+        // Set the byte order to the native order (if not set)
+        byteBuffer.order(ByteOrder.nativeOrder())
+
+        // Convert ByteBuffer to FloatBuffer
+        val floatBuffer: FloatBuffer = byteBuffer.asFloatBuffer()
+
+        // Create a FloatArray of the appropriate size
+        val floatArray = FloatArray(floatBuffer.remaining())
+
+        // Copy FloatBuffer contents into the FloatArray
+        floatBuffer.get(floatArray)
+
+        return floatArray
+    }
+
+    private fun bitmapToMat(bitmap: Bitmap): Mat {
+        val mat = Mat(bitmap.height, bitmap.width, CvType.CV_8UC4)
+        org.opencv.android.Utils.bitmapToMat(bitmap, mat)
+        return mat
+    }
+
+    // Convert OpenCV Mat to Bitmap
+    private fun matToBitmap(mat: Mat): Bitmap {
+        val bitmap = Bitmap.createBitmap(mat.cols(), mat.rows(), Bitmap.Config.ARGB_8888)
+        org.opencv.android.Utils.matToBitmap(mat, bitmap)
+        return bitmap
+    }
+
+    fun rotateBitmapUsingOpenCV(bitmap: Bitmap, angle: Double): Bitmap {
+        // Convert Bitmap to Mat
+        val src = bitmapToMat(bitmap)
+
+        // Get the center of the image
+        val center = Point(src.cols() / 2.0, src.rows() / 2.0)
+
+        // Create the rotation matrix
+        val rotationMatrix = Imgproc.getRotationMatrix2D(center, angle, 1.0)
+
+        // Create a destination Mat to store the rotated image
+        val dst = Mat()
+
+        // Determine the new size of the rotated image
+        val absCos = Math.abs(rotationMatrix[0, 0][0])
+        val absSin = Math.abs(rotationMatrix[0, 1][0])
+        val newWidth = (src.height() * absSin + src.width() * absCos).toInt()
+        val newHeight = (src.height() * absCos + src.width() * absSin).toInt()
+
+        // Adjust the rotation matrix to take into account translation
+        rotationMatrix.put(0, 2, rotationMatrix[0, 2][0] + (newWidth / 2.0 - center.x))
+        rotationMatrix.put(1, 2, rotationMatrix[1, 2][0] + (newHeight / 2.0 - center.y))
+
+        // Perform the affine transformation (rotation)
+        Imgproc.warpAffine(src, dst, rotationMatrix, Size(newWidth.toDouble(), newHeight.toDouble()))
+        Core.flip(dst, dst, 0)
+
+        // Convert the result back to Bitmap
+        return matToBitmap(dst)
     }
 
     const val MODEL_INPUTS_SIZE = 640

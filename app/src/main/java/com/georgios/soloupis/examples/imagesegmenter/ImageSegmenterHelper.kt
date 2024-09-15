@@ -16,22 +16,16 @@
 
 package com.georgios.soloupis.examples.imagesegmenter
 
+import ai.onnxruntime.OnnxTensor
+import ai.onnxruntime.OrtEnvironment
+import ai.onnxruntime.OrtSession
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import androidx.camera.core.ImageProxy
-import org.tensorflow.lite.DataType
-import org.tensorflow.lite.Interpreter
-import org.tensorflow.lite.support.common.ops.NormalizeOp
-import org.tensorflow.lite.support.image.ImageProcessor
-import org.tensorflow.lite.support.image.TensorImage
-import org.tensorflow.lite.support.image.ops.ResizeOp
-import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
-import java.io.FileInputStream
-import java.io.IOException
+import com.georgios.soloupis.examples.imagesegmenter.fragments.GalleryFragment
 import java.nio.ByteBuffer
-import java.nio.MappedByteBuffer
-import java.nio.channels.FileChannel
+
 
 class ImageSegmenterHelper(
     var currentDelegate: Int = DELEGATE_CPU,
@@ -40,37 +34,21 @@ class ImageSegmenterHelper(
     val context: Context,
     var imageSegmenterListener: SegmenterListener? = null
 ) {
-    private var interpreterFastSam: Interpreter? = null
+    private val ortEnvironment = OrtEnvironment.getEnvironment()
+    private var ortSession: OrtSession? = null
+    private var ortOptions: OrtSession.SessionOptions? = null
     private var inferenceTime: Long = 0L
 
     init {
         loadModel(FAST_SAM_MODEL)
     }
 
-    @Throws(IOException::class)
-    private fun loadModelFile(modelFile: String): MappedByteBuffer {
-        val fileDescriptor = context.assets.openFd(modelFile)
-        val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
-        val fileChannel = inputStream.channel
-        val startOffset = fileDescriptor.startOffset
-        val declaredLength = fileDescriptor.declaredLength
-        val retFile = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
-        fileDescriptor.close()
-        return retFile
-    }
-
     private fun loadModel(model: String) {
+        ortOptions = OrtSession.SessionOptions()
+        //ortOptions?.addCUDA()
 
-        val tfliteOptions = Interpreter.Options()
-        /*if (true) {
-            // Use with Tensorflow 2.8.0
-            //tfliteOptions.addDelegate(GpuDelegate())
-
-            //val delegate = GpuDelegate(GpuDelegate.Options().setQuantizedModelsAllowed(true))
-        }*/
-        tfliteOptions.setNumThreads(4)
-
-        interpreterFastSam = Interpreter(loadModelFile(model), tfliteOptions)
+        ortSession =
+            ortEnvironment.createSession(context.assets.open(model).readBytes(), ortOptions)
     }
 
     fun clearImageSegmenter() {
@@ -87,7 +65,7 @@ class ImageSegmenterHelper(
 
     // Return running status of image segmenter helper
     fun isClosed(): Boolean {
-        return interpreterFastSam == null
+        return ortSession == null
     }
 
     fun segmentLiveStreamFrame(imageProxy: ImageProxy, isFrontCamera: Boolean) {
@@ -97,89 +75,68 @@ class ImageSegmenterHelper(
             )
         }
 
-        val bitmapBuffer = Bitmap.createBitmap(
-            imageProxy.width, imageProxy.height, Bitmap.Config.ARGB_8888
-        )
+        val time = System.currentTimeMillis()
+
+        val bitmapBuffer = Bitmap.createBitmap(imageProxy.width, imageProxy.height, Bitmap.Config.ARGB_8888)
 
         imageProxy.use {
             bitmapBuffer.copyPixelsFromBuffer(imageProxy.planes[0].buffer)
         }
 
-        // Used for rotating the frame image so it matches our models
+        imageProxy.close()
+
         val matrix = Matrix().apply {
             postRotate(imageProxy.imageInfo.rotationDegrees.toFloat())
-
-            if(isFrontCamera) {
-                postScale(
-                    -1f,
-                    1f,
-                    imageProxy.width.toFloat(),
-                    imageProxy.height.toFloat()
-                )
+            if (isFrontCamera) {
+                postScale(-1f, 1f, imageProxy.width.toFloat(), imageProxy.height.toFloat())
             }
         }
 
-        imageProxy.close()
-
         val rotatedBitmap = Bitmap.createBitmap(
-            bitmapBuffer,
-            0,
-            0,
-            bitmapBuffer.width,
-            bitmapBuffer.height,
-            matrix,
-            true
+            bitmapBuffer, 0, 0, bitmapBuffer.width, bitmapBuffer.height, matrix, true
         )
 
-        val time = System.currentTimeMillis()
-        // Inputs
-        val imageProcessor =
-            ImageProcessor.Builder()
-                .add(ResizeOp(Utils.MODEL_INPUTS_SIZE, Utils.MODEL_INPUTS_SIZE, ResizeOp.ResizeMethod.BILINEAR))
-                .add(NormalizeOp(0.0f, 255.0f))
-                .build()
-        var tensorImage = TensorImage(DataType.FLOAT32)
-        tensorImage.load(rotatedBitmap)
-        tensorImage = imageProcessor.process(tensorImage)
-        val inputTensorBuffer = tensorImage.buffer
-        val inputArray = arrayOf(inputTensorBuffer)
+        // val rotatedBitmap = Utils.rotateBitmapUsingOpenCV(bitmapBuffer, imageProxy.imageInfo.rotationDegrees.toDouble())
 
-        // Outputs
-        val probabilityBuffer1 = TensorBuffer.createFixedSize(
-            intArrayOf(1, 37, 8400),
-            DataType.FLOAT32
+        val imagePixels = Utils.bitmapToFloatBufferOnnx(
+            rotatedBitmap,
+            GalleryFragment.INPUT_ONNX_DIMENSIONS,
+            GalleryFragment.INPUT_ONNX_DIMENSIONS
         )
-        val probabilityBuffer2 = TensorBuffer.createFixedSize(
-            intArrayOf(1, 160, 160, 32),
-            DataType.FLOAT32
-        )
-        val outputMap = HashMap<Int, Any>()
-        outputMap[0] = probabilityBuffer1.buffer
-        outputMap[1] = probabilityBuffer2.buffer
+        val inputTensor =
+            OnnxTensor.createTensor(
+                ortEnvironment,
+                imagePixels,
+                // 1, 3, 640, 640
+                longArrayOf(
+                    1,
+                    3,
+                    GalleryFragment.INPUT_ONNX_DIMENSIONS.toLong(),
+                    GalleryFragment.INPUT_ONNX_DIMENSIONS.toLong()
+                )
+            )
+        val inputOnnxName = ortSession?.inputNames?.iterator()?.next()
+        val outputs = ortSession?.run(mapOf(inputOnnxName to inputTensor))
 
-        interpreterFastSam?.runForMultipleInputsOutputs(inputArray, outputMap)
 
-        // Convert to a float array with the desired shape
-        val flatFloatArray = probabilityBuffer1.floatArray
-        // Step 2: Convert the flat float array into a 3D float array of shape [1, 37, 8400]
+        val outputTensor0 = outputs?.get(0) as OnnxTensor
+        val flatfloatarray0Onnx = Utils.byteBufferToFloatArray(outputTensor0.byteBuffer)
         val boxesArray = Array(1) { Array(37) { FloatArray(8400) } }
         for (i in 0 until 37) {
             for (j in 0 until 8400) {
-                boxesArray[0][i][j] = flatFloatArray[i * 8400 + j]
+                boxesArray[0][i][j] = flatfloatarray0Onnx[i * 8400 + j]
             }
         }
 
-        val flatFloatArray2 = probabilityBuffer2.floatArray
 
+        val outputTensor1 = outputs.get(1) as OnnxTensor
+        val flatfloatarray1Onnx = Utils.byteBufferToFloatArray(outputTensor1.byteBuffer)
         val masksArray = Array(1) { Array(32) { Array(160) { FloatArray(160) } } }
-        for (i in 0 until 160) {
-            for (j in 0 until 160) {
-                for (k in 0 until 32) {
-                    // Calculate the index in flatFloatArray based on original shape [1, 160, 160, 32]
-                    val originalIndex = i * 160 * 32 + j * 32 + k
-
-                    // Place the value in the new transposed position [1, 32, 160, 160]
-                    masksArray[0][k][i][j] = flatFloatArray2[originalIndex]
+        var index = 0
+        for (c in 0 until 32) {
+            for (h in 0 until 160) {
+                for (w in 0 until 160) {
+                    masksArray[0][c][h][w] = flatfloatarray1Onnx[index++]
                 }
             }
         }
@@ -209,7 +166,7 @@ class ImageSegmenterHelper(
         const val GPU_ERROR = 1
 
         const val MODEL_FASTSAM = 0
-        const val FAST_SAM_MODEL = "FastSAM-s_float16_final.tflite"
+        const val FAST_SAM_MODEL = "FastSAM-s.onnx"
         private const val TAG = "ImageSegmenterHelper"
 
         enum class RunningMode {

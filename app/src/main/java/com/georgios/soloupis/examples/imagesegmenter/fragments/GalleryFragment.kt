@@ -22,7 +22,6 @@ import ai.onnxruntime.OrtSession.SessionOptions
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Color
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
@@ -38,6 +37,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import com.georgios.soloupis.examples.imagesegmenter.ImageSegmenterHelper
+import com.georgios.soloupis.examples.imagesegmenter.ImageSegmenterHelper.Companion.FAST_SAM_MODEL
 import com.georgios.soloupis.examples.imagesegmenter.MainViewModel
 import com.georgios.soloupis.examples.imagesegmenter.Utils
 import com.georgios.soloupis.examples.imagesegmenter.databinding.FragmentGalleryBinding
@@ -51,7 +51,6 @@ import java.io.IOException
 import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.nio.FloatBuffer
 import java.util.Timer
 
 
@@ -251,60 +250,6 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
         return inputImage
     }
 
-    private fun bitmapToFloatBufferOnnx(
-        bitmapIn: Bitmap,
-        width: Int,
-        height: Int,
-        mean: Float = 0.0f,
-        std: Float = 255.0f
-    ): FloatBuffer {
-        val bitmap = Bitmap.createScaledBitmap(bitmapIn, width, height, true)
-        val inputImage = FloatBuffer.allocate(1 * 3 * width * height)
-
-        val intValues = IntArray(width * height)
-        bitmap.getPixels(intValues, 0, width, 0, 0, width, height)
-
-        // Convert pixel data into FloatBuffer in the format [1, 3, width, height]
-        for (i in 0 until 3) {
-            for (x in 0 until width) {
-                for (y in 0 until height) {
-                    val value = intValues[x * width + y]
-                    when (i) {
-                        0 -> {
-                            inputImage.put(((Color.red(value)) - mean) / std)
-                        }
-                        1 -> {
-                            inputImage.put(((Color.green(value)) - mean) / std)
-                        }
-                        else -> {
-                            inputImage.put(((Color.blue(value)) - mean) / std)
-                        }
-                    }
-
-                }
-            }
-        }
-
-        inputImage.rewind()  // Reset the buffer's position to the beginning for reading
-        return inputImage
-    }
-
-    private fun byteBufferToFloatArray(byteBuffer: ByteBuffer): FloatArray {
-        // Set the byte order to the native order (if not set)
-        byteBuffer.order(ByteOrder.nativeOrder())
-
-        // Convert ByteBuffer to FloatBuffer
-        val floatBuffer: FloatBuffer = byteBuffer.asFloatBuffer()
-
-        // Create a FloatArray of the appropriate size
-        val floatArray = FloatArray(floatBuffer.remaining())
-
-        // Copy FloatBuffer contents into the FloatArray
-        floatBuffer.get(floatArray)
-
-        return floatArray
-    }
-
     // Load and display the image.
     private fun runSegmentationOnImage(uri: Uri) {
         fragmentGalleryBinding.overlayView.setRunningMode(ImageSegmenterHelper.Companion.RunningMode.IMAGE)
@@ -328,7 +273,7 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
 
         lifecycleScope.launch(Dispatchers.Default) {
             val time = System.currentTimeMillis()
-            val imagePixels = bitmapToFloatBufferOnnx(inputImage, INPUT_ONNX_DIMENSIONS, INPUT_ONNX_DIMENSIONS)
+            val imagePixels = Utils.bitmapToFloatBufferOnnx(inputImage, INPUT_ONNX_DIMENSIONS, INPUT_ONNX_DIMENSIONS)
             val inputTensor =
                 OnnxTensor.createTensor(
                     ortEnvironment,
@@ -340,7 +285,7 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
 
 
             val outputTensor0 = outputs?.get(0) as OnnxTensor
-            val flatfloatarray0Onnx = byteBufferToFloatArray(outputTensor0.byteBuffer)
+            val flatfloatarray0Onnx = Utils.byteBufferToFloatArray(outputTensor0.byteBuffer)
             val boxesArray = Array(1) { Array(37) { FloatArray(8400) } }
             for (i in 0 until 37) {
                 for (j in 0 until 8400) {
@@ -350,7 +295,7 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
 
 
             val outputTensor1 = outputs.get(1) as OnnxTensor
-            val flatfloatarray1Onnx = byteBufferToFloatArray(outputTensor1.byteBuffer)
+            val flatfloatarray1Onnx = Utils.byteBufferToFloatArray(outputTensor1.byteBuffer)
             val masksArray = Array(1) { Array(32) { Array(160) { FloatArray(160) } } }
             var index = 0
             for (c in 0 until 32) {
@@ -469,7 +414,6 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
 
     companion object {
         private const val TAG = "GalleryFragment"
-        private const val INPUT_ONNX_DIMENSIONS = 640
-        private const val FAST_SAM_MODEL = "FastSAM-s.onnx"
+        const val INPUT_ONNX_DIMENSIONS = 640
     }
 }

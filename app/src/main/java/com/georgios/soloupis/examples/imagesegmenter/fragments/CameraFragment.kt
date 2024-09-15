@@ -60,7 +60,7 @@ class CameraFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
     private var imageAnalyzer: ImageAnalysis? = null
     private var camera: Camera? = null
     private var cameraProvider: ProcessCameraProvider? = null
-    private var cameraFacing = CameraSelector.LENS_FACING_FRONT
+    private var cameraFacing = CameraSelector.LENS_FACING_BACK
 
     /** Blocking operations are performed using this executor */
     private var backgroundExecutor: ExecutorService? = null
