@@ -38,7 +38,6 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import com.georgios.soloupis.examples.imagesegmenter.ImageSegmenterHelper
-import com.georgios.soloupis.examples.imagesegmenter.ImageSegmenterHelper.Companion.FAST_SAM_MODEL
 import com.georgios.soloupis.examples.imagesegmenter.MainViewModel
 import com.georgios.soloupis.examples.imagesegmenter.Utils
 import com.georgios.soloupis.examples.imagesegmenter.databinding.FragmentGalleryBinding
@@ -48,15 +47,11 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import org.tensorflow.lite.Interpreter
-import java.io.FileInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
-import java.nio.MappedByteBuffer
-import java.nio.channels.FileChannel
 import java.util.Timer
 
 
@@ -72,7 +67,6 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
     private var imageSegmenterHelper: ImageSegmenterHelper? = null
     private var backgroundScope: CoroutineScope? = null
     private var fixedRateTimer: Timer? = null
-    private var interpreterFastSam: Interpreter? = null
     private var inferenceTime: Long = 0L
 
     private val ortEnvironment = OrtEnvironment.getEnvironment()
@@ -130,36 +124,12 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
         setUiEnabled(true)
     }
 
-    @Throws(IOException::class)
-    private fun loadModelFile(modelFile: String): MappedByteBuffer {
-        val fileDescriptor = requireActivity().assets.openFd(modelFile)
-        val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
-        val fileChannel = inputStream.channel
-        val startOffset = fileDescriptor.startOffset
-        val declaredLength = fileDescriptor.declaredLength
-        val retFile = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
-        fileDescriptor.close()
-        return retFile
-    }
-
     private fun loadModel(model: String) {
 
         ortOptions = SessionOptions()
         //ortOptions?.addCUDA()
 
-        ortSession = ortEnvironment.createSession(requireActivity().assets.open("FastSAM-s.onnx").readBytes(), ortOptions)
-
-
-        val tfliteOptions = Interpreter.Options()
-        /*if (true) {
-            // Use with Tensorflow 2.8.0
-            //tfliteOptions.addDelegate(GpuDelegate())
-
-            //val delegate = GpuDelegate(GpuDelegate.Options().setQuantizedModelsAllowed(true))
-        }*/
-        tfliteOptions.setNumThreads(4)
-
-        interpreterFastSam = Interpreter(loadModelFile(model), tfliteOptions)
+        ortSession = ortEnvironment.createSession(requireActivity().assets.open(model).readBytes(), ortOptions)
     }
 
     private fun initBottomSheetControls() {
@@ -288,18 +258,13 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
         mean: Float = 0.0f,
         std: Float = 255.0f
     ): FloatBuffer {
-        // Step 1: Scale the bitmap to the target size (width x height)
         val bitmap = Bitmap.createScaledBitmap(bitmapIn, width, height, true)
-
-        // Step 2: Allocate FloatBuffer for the image in 1x3xWidthxHeight format
-        // 1 (batch size) * 3 (channels) * width * height
         val inputImage = FloatBuffer.allocate(1 * 3 * width * height)
 
-        // Step 3: Prepare an array to hold pixel data from the bitmap
         val intValues = IntArray(width * height)
         bitmap.getPixels(intValues, 0, width, 0, 0, width, height)
 
-        // Step 4: Convert pixel data into FloatBuffer in the format [1, 3, width, height]
+        // Convert pixel data into FloatBuffer in the format [1, 3, width, height]
         for (i in 0 until 3) {
             for (x in 0 until width) {
                 for (y in 0 until height) {
@@ -323,8 +288,6 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
         inputImage.rewind()  // Reset the buffer's position to the beginning for reading
         return inputImage
     }
-
-
 
     private fun byteBufferToFloatArray(byteBuffer: ByteBuffer): FloatArray {
         // Set the byte order to the native order (if not set)
@@ -384,7 +347,6 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
                     boxesArray[0][i][j] = flatfloatarray0Onnx[i * 8400 + j]
                 }
             }
-
 
 
             val outputTensor1 = outputs.get(1) as OnnxTensor
@@ -508,5 +470,6 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
     companion object {
         private const val TAG = "GalleryFragment"
         private const val INPUT_ONNX_DIMENSIONS = 640
+        private const val FAST_SAM_MODEL = "FastSAM-s.onnx"
     }
 }
