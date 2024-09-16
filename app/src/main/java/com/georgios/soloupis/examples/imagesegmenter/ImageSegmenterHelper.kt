@@ -96,6 +96,7 @@ class ImageSegmenterHelper(
                 "Attempting to call segmentLiveStreamFrame" + " while not using RunningMode.LIVE_STREAM"
             )
         }
+        val time = System.currentTimeMillis()
 
         val bitmapBuffer = Bitmap.createBitmap(
             imageProxy.width, imageProxy.height, Bitmap.Config.ARGB_8888
@@ -131,7 +132,6 @@ class ImageSegmenterHelper(
             true
         )
 
-        val time = System.currentTimeMillis()
         // Inputs
         val imageProcessor =
             ImageProcessor.Builder()
