@@ -338,7 +338,7 @@ object Utils {
         // Crop masks based on bounding boxes
         val finalMasks = cropMask(resizedMasks, bboxes)
 
-        Log.v("utils_", (System.currentTimeMillis() - time).toString())
+        // Log.v("utils_", (System.currentTimeMillis() - time).toString())
 
         // Convert masks to binary
         return Array(finalMasks.size) { i ->

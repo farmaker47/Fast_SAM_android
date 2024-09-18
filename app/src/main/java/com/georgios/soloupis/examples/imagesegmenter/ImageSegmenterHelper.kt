@@ -68,7 +68,7 @@ class ImageSegmenterHelper(
 
             //val delegate = GpuDelegate(GpuDelegate.Options().setQuantizedModelsAllowed(true))
         }*/
-        tfliteOptions.setNumThreads(4)
+        tfliteOptions.setNumThreads(7)
 
         interpreterFastSam = Interpreter(loadModelFile(model), tfliteOptions)
     }
