@@ -2,11 +2,12 @@ package com.georgios.soloupis.examples.imagesegmenter
 
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.util.Log
 import org.opencv.core.CvType
 import org.opencv.core.Mat
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import kotlin.random.Random
 
 object Utils {
@@ -440,6 +441,35 @@ object Utils {
         bitmap.setPixels(pixels, 0, MODEL_INPUTS_SIZE, 0, 0, MODEL_INPUTS_SIZE, MODEL_INPUTS_SIZE)
 
         return bitmap
+    }
+
+    fun bitmapToByteBuffer(
+        bitmapIn: Bitmap,
+        width: Int,
+        height: Int,
+        mean: Float = 0.0f,
+        std: Float = 255.0f
+    ): ByteBuffer {
+        //val bitmap = scaleBitmapAndKeepRatio(bitmapIn, width, height)
+        val inputImage = ByteBuffer.allocateDirect(1 * width * height * 3 * 4)
+        inputImage.order(ByteOrder.nativeOrder())
+        inputImage.rewind()
+
+        val intValues = IntArray(width * height)
+        bitmapIn.getPixels(intValues, 0, width, 0, 0, width, height)
+        var pixel = 0
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val value = intValues[pixel++]
+
+                inputImage.putFloat(((value shr 16 and 0xFF) - mean) / std)
+                inputImage.putFloat(((value shr 8 and 0xFF) - mean) / std)
+                inputImage.putFloat(((value and 0xFF) - mean) / std)
+            }
+        }
+
+        inputImage.rewind()
+        return inputImage
     }
 
     const val MODEL_INPUTS_SIZE = 640
