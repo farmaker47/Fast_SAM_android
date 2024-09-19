@@ -96,7 +96,6 @@ class ImageSegmenterHelper(
                 "Attempting to call segmentLiveStreamFrame" + " while not using RunningMode.LIVE_STREAM"
             )
         }
-        val time = System.currentTimeMillis()
 
         val bitmapBuffer = Bitmap.createBitmap(
             imageProxy.width, imageProxy.height, Bitmap.Config.ARGB_8888
@@ -142,6 +141,12 @@ class ImageSegmenterHelper(
         tensorImage.load(rotatedBitmap)
         tensorImage = imageProcessor.process(tensorImage)
         val inputTensorBuffer = tensorImage.buffer
+
+
+        // OR directly with ByteBuffer
+        // val inputTensorBuffer = Utils.bitmapToByteBuffer(rotatedBitmap, 640, 640)
+
+
         val inputArray = arrayOf(inputTensorBuffer)
 
         // Outputs
@@ -157,7 +162,9 @@ class ImageSegmenterHelper(
         outputMap[0] = probabilityBuffer1.buffer
         outputMap[1] = probabilityBuffer2.buffer
 
+        val time = System.currentTimeMillis()
         interpreterFastSam?.runForMultipleInputsOutputs(inputArray, outputMap)
+        inferenceTime = System.currentTimeMillis() - time
 
         // Convert to a float array with the desired shape
         val flatFloatArray = probabilityBuffer1.floatArray
@@ -187,8 +194,6 @@ class ImageSegmenterHelper(
         val masks = Utils.postProcess(boxesArray, masksArray)
 
         val bitmap = Utils.createCombinedBitmapFromFloatArray(masks)
-
-        inferenceTime = System.currentTimeMillis() - time
 
         imageSegmenterListener?.onResultFastSAM(bitmap, inferenceTime)
     }
