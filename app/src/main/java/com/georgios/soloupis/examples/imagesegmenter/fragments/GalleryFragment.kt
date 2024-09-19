@@ -53,8 +53,6 @@ import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
 import java.io.FileInputStream
 import java.io.IOException
 import java.io.InputStream
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
 import java.util.Timer
@@ -241,44 +239,15 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
         }
     }
 
-    private fun bitmapToByteBuffer(
-        bitmapIn: Bitmap,
-        width: Int,
-        height: Int,
-        mean: Float = 0.0f,
-        std: Float = 255.0f
-    ): ByteBuffer {
-        //val bitmap = scaleBitmapAndKeepRatio(bitmapIn, width, height)
-        val inputImage = ByteBuffer.allocateDirect(1 * width * height * 3 * 4)
-        inputImage.order(ByteOrder.nativeOrder())
-        inputImage.rewind()
-
-        val intValues = IntArray(width * height)
-        bitmapIn.getPixels(intValues, 0, width, 0, 0, width, height)
-        var pixel = 0
-        for (y in 0 until height) {
-            for (x in 0 until width) {
-                val value = intValues[pixel++]
-
-                inputImage.putFloat(((value shr 16 and 0xFF) - mean) / std)
-                inputImage.putFloat(((value shr 8 and 0xFF) - mean) / std)
-                inputImage.putFloat(((value and 0xFF) - mean) / std)
-            }
-        }
-
-        inputImage.rewind()
-        return inputImage
-    }
-
     // Load and display the image.
     private fun runSegmentationOnImage(uri: Uri) {
         fragmentGalleryBinding.overlayView.setRunningMode(ImageSegmenterHelper.Companion.RunningMode.IMAGE)
         setUiEnabled(false)
         updateDisplayView(MediaType.IMAGE)
-        val inputImage = uri.toBitmap()
+        // val inputImage = uri.toBitmap()
         // inputImage = inputImage.scaleDown(INPUT_IMAGE_MAX_WIDTH)
 
-        // val inputImage = loadBitmapFromAssets("resized_image.png")
+        val inputImage = loadBitmapFromAssets("resized_image.png")
 
         // display image on UI
         fragmentGalleryBinding.imageResult.setImageBitmap(inputImage)
@@ -292,7 +261,6 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
 
         lifecycleScope.launch(Dispatchers.Default) {
 
-            val time = System.currentTimeMillis()
             // Inputs
             val imageProcessor =
                 ImageProcessor.Builder()
@@ -303,6 +271,11 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
             tensorImage.load(inputImage)
             tensorImage = imageProcessor.process(tensorImage)
             val inputTensorBuffer = tensorImage.buffer
+
+            // OR directly with ByteBuffer without the need of the Support Library
+            // val inputTensorBuffer = inputImage?.let { Utils.bitmapToByteBuffer(it, 640, 640) }
+
+
             val inputArray = arrayOf(inputTensorBuffer)
 
             // Outputs
@@ -318,7 +291,9 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
             outputMap[0] = probabilityBuffer1.buffer
             outputMap[1] = probabilityBuffer2.buffer
 
+            val time = System.currentTimeMillis()
             interpreterFastSam?.runForMultipleInputsOutputs(inputArray, outputMap)
+            inferenceTime = System.currentTimeMillis() - time
 
             // Convert to a float array with the desired shape
             val flatFloatArray = probabilityBuffer1.floatArray
@@ -348,9 +323,7 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
 
             val bitmap = Utils.createCombinedBitmapFromFloatArray(masks)
 
-            inferenceTime = System.currentTimeMillis() - time
-
-            updateOverlayWithFastSAM(bitmap, inputImage.width, inputImage.height)
+            updateOverlayWithFastSAM(bitmap, inputImage?.width ?: 640, inputImage?.height ?: 640)
 
         }
     }
