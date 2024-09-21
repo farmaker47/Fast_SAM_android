@@ -45,6 +45,8 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
+import org.tensorflow.lite.gpu.CompatibilityList
+import org.tensorflow.lite.gpu.GpuDelegate
 import org.tensorflow.lite.support.common.ops.NormalizeOp
 import org.tensorflow.lite.support.image.ImageProcessor
 import org.tensorflow.lite.support.image.TensorImage
@@ -139,16 +141,21 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
     }
 
     private fun loadModel(model: String) {
-        val tfliteOptions = Interpreter.Options()
-        /*if (true) {
-            // Use with Tensorflow 2.8.0
-            //tfliteOptions.addDelegate(GpuDelegate())
+        val compatList = CompatibilityList()
+        val options = Interpreter.Options().apply{
+            if(compatList.isDelegateSupportedOnThisDevice){
+                // if the device has a supported GPU, add the GPU delegate
+                val delegateOptions = compatList.bestOptionsForThisDevice
+                this.addDelegate(GpuDelegate(delegateOptions))
+            } else {
+                // If the GPU is not supported, run on 7 threads
+                // Check instructions on how 7 threads were selected here
+                // https://ai.google.dev/edge/litert/models/measurement#native_benchmark_binary
+                this.setNumThreads(7)
+            }
+        }
 
-            //val delegate = GpuDelegate(GpuDelegate.Options().setQuantizedModelsAllowed(true))
-        }*/
-        tfliteOptions.setNumThreads(7)
-
-        interpreterFastSam = Interpreter(loadModelFile(model), tfliteOptions)
+        interpreterFastSam = Interpreter(loadModelFile(model), options)
     }
 
     private fun initBottomSheetControls() {
@@ -282,13 +289,6 @@ class GalleryFragment : Fragment(), ImageSegmenterHelper.SegmenterListener {
 
         // display image on UI
         fragmentGalleryBinding.imageResult.setImageBitmap(inputImage)
-
-        imageSegmenterHelper = ImageSegmenterHelper(
-            context = requireContext(),
-            runningMode = ImageSegmenterHelper.Companion.RunningMode.IMAGE,
-            currentDelegate = viewModel.currentDelegate,
-            imageSegmenterListener = this
-        )
 
         lifecycleScope.launch(Dispatchers.Default) {
 
