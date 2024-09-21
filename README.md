@@ -3,7 +3,7 @@
 # Overview
 
 This is a camera app that continuously segment the objects in the frames seen
-by your device's camera.
+by your device's camera. **In this branch GPU is used if supported**.
 
 # Model
 
