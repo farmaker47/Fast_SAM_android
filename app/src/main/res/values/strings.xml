@@ -30,8 +30,7 @@
     <string name="tv_gallery_placeholder">Click + to add an image to begin running the image segmentation.</string>
 
     <string-array name="delegate_spinner_titles">
-        <item>CPU</item>
-        <item>GPU</item>
+        <item>Auto</item>
     </string-array>
 
     <string-array name="models_spinner_titles">
