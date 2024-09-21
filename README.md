@@ -49,6 +49,10 @@ pip install -r requirements.txt
   <img src="mouth_with_mask.png" alt="Image 2" width="300" height="600">
 </p>
 
+## Medium post
+
+[Implement LiteRT for a segmentation task utilizing the FastSAM model by Ultralytics.](https://farmaker47.medium.com/implement-litert-for-a-segmentation-task-utilizing-the-fastsam-model-by-ultralytics-9d7e14c88bd4)
+
 ## LiteRT
 
 Google has rebranded TensorFlow Lite as LiteRT which is used inside this project. Despite the new name, LiteRT retains the same high-performance on-device AI runtime but with expanded vision for multi-framework support, including models built in TensorFlow, PyTorch, JAX, and Keras. This change aims to make deploying machine learning models easier and more efficient across Android, iOS, and embedded devices. The name reflects Google’s commitment to a lightweight, multi-framework AI future.
